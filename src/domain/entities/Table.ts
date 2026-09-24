@@ -3,6 +3,7 @@ export type TableStatus = 'available' | 'occupied' | 'reserved' | 'blocked';
 
 export interface RestaurantTableProps {
   id: string;
+  tenantId?: string;
   zoneId: string;
   name: string;
   shape: TableShape;
@@ -18,6 +19,7 @@ export interface RestaurantTableProps {
 
 export class RestaurantTable {
   public readonly id: string;
+  public tenantId: string;
   public zoneId: string;
   public name: string;
   public shape: TableShape;
@@ -32,6 +34,7 @@ export class RestaurantTable {
 
   constructor(props: RestaurantTableProps) {
     this.id = props.id;
+    this.tenantId = props.tenantId ?? 'default';
     this.zoneId = props.zoneId;
     this.name = props.name;
     this.shape = props.shape;

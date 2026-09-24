@@ -19,6 +19,18 @@ describe('Domain Entities', () => {
     expect(zone.id).toBe('z-1');
     expect(zone.name).toBe('Terraza VIP');
     expect(zone.isDefault).toBe(true);
+    expect(zone.tenantId).toBe('default');
+
+    const customZone = new Zone({
+      id: 'z-2',
+      tenantId: 'bar-rooftop',
+      name: 'Rooftop',
+      width: 800,
+      height: 600,
+      isDefault: false,
+      createdAt: 1727189500000,
+    });
+    expect(customZone.tenantId).toBe('bar-rooftop');
   });
 
   it('should create and validate a RestaurantTable entity', () => {
@@ -38,6 +50,7 @@ describe('Domain Entities', () => {
     });
 
     expect(table.name).toBe('Mesa 1');
+    expect(table.tenantId).toBe('default');
     expect(table.isOccupied()).toBe(false);
 
     table.markOccupied();
@@ -81,6 +94,7 @@ describe('Domain Entities', () => {
     });
 
     expect(call.isPending()).toBe(true);
+    expect(call.tenantId).toBe('default');
 
     call.attend(1727189550000);
     expect(call.status).toBe('attending');

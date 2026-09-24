@@ -24,21 +24,55 @@ export const reservationStatusEnum = pgEnum('reservation_status', [
   'completed',
 ]);
 
-// 1. Zonas
-export const zones = pgTable('zones', {
-  id: uuid('id').primaryKey(),
+// 0. Multi-Tenancy y Usuarios de Establecimientos
+export const tenants = pgTable('tenants', {
+  id: varchar('id', { length: 50 }).primaryKey(), // slug o uuid
   name: varchar('name', { length: 100 }).notNull(),
-  width: integer('width').notNull(),
-  height: integer('height').notNull(),
-  isDefault: boolean('is_default').default(false).notNull(),
+  ownerEmail: varchar('owner_email', { length: 150 }).notNull(),
   createdAt: bigint('created_at', { mode: 'number' }).notNull(),
 });
+
+export const tenantUsers = pgTable(
+  'tenant_users',
+  {
+    id: uuid('id').defaultRandom().primaryKey(),
+    tenantId: varchar('tenant_id', { length: 50 })
+      .references(() => tenants.id, { onDelete: 'cascade' })
+      .notNull(),
+    userId: varchar('user_id', { length: 100 }).notNull(), // Supabase auth.users ID
+    email: varchar('email', { length: 150 }).notNull(),
+    role: varchar('role', { length: 20 }).default('staff').notNull(), // 'manager' | 'staff'
+    createdAt: bigint('created_at', { mode: 'number' }).notNull(),
+  },
+  (t) => [
+    index('idx_tenant_users_tenant').on(t.tenantId),
+    index('idx_tenant_users_user').on(t.userId),
+  ]
+);
+
+// 1. Zonas
+export const zones = pgTable(
+  'zones',
+  {
+    id: uuid('id').primaryKey(),
+    tenantId: varchar('tenant_id', { length: 50 }).default('default').notNull(),
+    name: varchar('name', { length: 100 }).notNull(),
+    width: integer('width').notNull(),
+    height: integer('height').notNull(),
+    isDefault: boolean('is_default').default(false).notNull(),
+    createdAt: bigint('created_at', { mode: 'number' }).notNull(),
+  },
+  (t) => [
+    index('idx_zones_tenant').on(t.tenantId),
+  ]
+);
 
 // 2. Mesas del Croquis
 export const restaurantTables = pgTable(
   'restaurant_tables',
   {
     id: uuid('id').primaryKey(),
+    tenantId: varchar('tenant_id', { length: 50 }).default('default').notNull(),
     zoneId: uuid('zone_id')
       .references(() => zones.id, { onDelete: 'cascade' })
       .notNull(),
@@ -54,6 +88,7 @@ export const restaurantTables = pgTable(
     updatedAt: bigint('updated_at', { mode: 'number' }).notNull(),
   },
   (t) => [
+    index('idx_tables_tenant').on(t.tenantId),
     index('idx_tables_zone').on(t.zoneId),
     index('idx_tables_status').on(t.status),
   ]
@@ -64,6 +99,7 @@ export const tableSessions = pgTable(
   'table_sessions',
   {
     id: uuid('id').primaryKey(),
+    tenantId: varchar('tenant_id', { length: 50 }).default('default').notNull(),
     tableId: uuid('table_id')
       .references(() => restaurantTables.id, { onDelete: 'cascade' })
       .notNull(),
@@ -73,6 +109,7 @@ export const tableSessions = pgTable(
     closedAt: bigint('closed_at', { mode: 'number' }),
   },
   (t) => [
+    index('idx_sessions_tenant').on(t.tenantId),
     index('idx_sessions_table_status').on(t.tableId, t.status),
   ]
 );
@@ -82,6 +119,7 @@ export const waiterCalls = pgTable(
   'waiter_calls',
   {
     id: uuid('id').primaryKey(),
+    tenantId: varchar('tenant_id', { length: 50 }).default('default').notNull(),
     tableId: uuid('table_id')
       .references(() => restaurantTables.id, { onDelete: 'cascade' })
       .notNull(),
@@ -97,6 +135,7 @@ export const waiterCalls = pgTable(
     resolvedAt: bigint('resolved_at', { mode: 'number' }),
   },
   (t) => [
+    index('idx_calls_tenant').on(t.tenantId),
     index('idx_calls_status_created').on(t.status, t.createdAt),
   ]
 );
@@ -106,6 +145,7 @@ export const reservations = pgTable(
   'reservations',
   {
     id: uuid('id').primaryKey(),
+    tenantId: varchar('tenant_id', { length: 50 }).default('default').notNull(),
     tableId: uuid('table_id').references(() => restaurantTables.id, { onDelete: 'set null' }),
     customerName: varchar('customer_name', { length: 150 }).notNull(),
     customerPhone: varchar('customer_phone', { length: 30 }).notNull(),
@@ -118,6 +158,7 @@ export const reservations = pgTable(
     createdAt: bigint('created_at', { mode: 'number' }).notNull(),
   },
   (t) => [
+    index('idx_reservations_tenant').on(t.tenantId),
     index('idx_reservations_date_status').on(t.date, t.status),
   ]
 );
@@ -127,6 +168,7 @@ export const syncAuditLog = pgTable(
   'sync_audit_log',
   {
     id: uuid('id').defaultRandom().primaryKey(),
+    tenantId: varchar('tenant_id', { length: 50 }).default('default').notNull(),
     clientEventId: varchar('client_event_id', { length: 100 }).notNull(),
     entity: varchar('entity', { length: 50 }).notNull(),
     action: varchar('action', { length: 20 }).notNull(),
@@ -135,5 +177,6 @@ export const syncAuditLog = pgTable(
   },
   (t) => [
     uniqueIndex('uq_sync_client_event').on(t.clientEventId),
+    index('idx_sync_tenant').on(t.tenantId),
   ]
 );

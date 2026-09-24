@@ -1,5 +1,6 @@
 export interface ZoneProps {
   id: string;
+  tenantId?: string;
   name: string;
   width: number;
   height: number;
@@ -9,6 +10,7 @@ export interface ZoneProps {
 
 export class Zone {
   public readonly id: string;
+  public tenantId: string;
   public name: string;
   public width: number;
   public height: number;
@@ -17,6 +19,7 @@ export class Zone {
 
   constructor(props: ZoneProps) {
     this.id = props.id;
+    this.tenantId = props.tenantId ?? 'default';
     this.name = props.name;
     this.width = props.width;
     this.height = props.height;

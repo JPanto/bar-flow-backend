@@ -3,6 +3,7 @@ export type CallStatus = 'pending' | 'attending' | 'resolved' | 'cancelled';
 
 export interface WaiterCallProps {
   id: string;
+  tenantId?: string;
   tableId: string;
   sessionId: string;
   tableName: string;
@@ -16,6 +17,7 @@ export interface WaiterCallProps {
 
 export class WaiterCall {
   public readonly id: string;
+  public tenantId: string;
   public readonly tableId: string;
   public readonly sessionId: string;
   public readonly tableName: string;
@@ -28,6 +30,7 @@ export class WaiterCall {
 
   constructor(props: WaiterCallProps) {
     this.id = props.id;
+    this.tenantId = props.tenantId ?? 'default';
     this.tableId = props.tableId;
     this.sessionId = props.sessionId;
     this.tableName = props.tableName;
