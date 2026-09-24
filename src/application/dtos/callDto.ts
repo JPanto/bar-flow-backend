@@ -1,6 +1,7 @@
 import { z } from 'zod';
 
 export const createCallSchema = z.object({
+  tenantId: z.string().optional(),
   tableId: z.string().uuid(),
   sessionId: z.string().uuid(),
   tableName: z.string().min(1),

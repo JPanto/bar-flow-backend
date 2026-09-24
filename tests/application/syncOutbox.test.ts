@@ -8,19 +8,19 @@ import { IWebSocketHub, RealtimeMessage } from '../../src/application/ports/IWeb
 import { SyncEventDTO } from '../../src/application/dtos/syncDto.js';
 
 class MockSyncAuditRepository implements ISyncAuditRepository {
-  private records = new Set<string>();
+  public records: SyncAuditRecord[] = [];
 
   async hasEventBeenProcessed(clientEventId: string): Promise<boolean> {
-    return this.records.has(clientEventId);
+    return this.records.some((r) => r.clientEventId === clientEventId);
   }
 
   async recordSync(record: SyncAuditRecord): Promise<void> {
-    this.records.add(record.clientEventId);
+    this.records.push(record);
   }
 
   async recordSyncBatch(records: SyncAuditRecord[]): Promise<void> {
     for (const r of records) {
-      this.records.add(r.clientEventId);
+      this.records.push(r);
     }
   }
 }
@@ -28,8 +28,12 @@ class MockSyncAuditRepository implements ISyncAuditRepository {
 class MockTableRepository implements ITableRepository {
   public tables: any[] = [];
   async findById(id: string) { return this.tables.find(t => t.id === id) || null; }
-  async findAll() { return this.tables; }
-  async findByZoneId(zoneId: string) { return this.tables.filter(t => t.zoneId === zoneId); }
+  async findAll(tenantId: string = 'default') {
+    return this.tables.filter(t => (t.tenantId ?? 'default') === tenantId);
+  }
+  async findByZoneId(zoneId: string, tenantId: string = 'default') {
+    return this.tables.filter(t => t.zoneId === zoneId && (t.tenantId ?? 'default') === tenantId);
+  }
   async save(table: any) { this.tables.push(table); }
   async update(id: string, changes: any) {
     const idx = this.tables.findIndex(t => t.id === id);
@@ -42,7 +46,9 @@ class MockSessionRepository implements ITableSessionRepository {
   public sessions: any[] = [];
   async findById(id: string) { return this.sessions.find(s => s.id === id) || null; }
   async findActiveByTableId(tableId: string) { return this.sessions.find(s => s.tableId === tableId && s.status === 'active') || null; }
-  async findActiveSessions() { return this.sessions.filter(s => s.status === 'active'); }
+  async findActiveSessions(tenantId: string = 'default') {
+    return this.sessions.filter(s => s.status === 'active' && (s.tenantId ?? 'default') === tenantId);
+  }
   async save(session: any) { this.sessions.push(session); }
   async update(id: string, changes: any) {
     const idx = this.sessions.findIndex(s => s.id === id);
@@ -59,7 +65,9 @@ class MockSessionRepository implements ITableSessionRepository {
 class MockCallRepository implements IWaiterCallRepository {
   public calls: any[] = [];
   async findById(id: string) { return this.calls.find(c => c.id === id) || null; }
-  async findActiveCalls() { return this.calls.filter(c => c.status === 'pending' || c.status === 'attending'); }
+  async findActiveCalls(tenantId: string = 'default') {
+    return this.calls.filter(c => (c.status === 'pending' || c.status === 'attending') && (c.tenantId ?? 'default') === tenantId);
+  }
   async findByTableId(tableId: string) { return this.calls.filter(c => c.tableId === tableId); }
   async save(call: any) { this.calls.push(call); }
   async update(id: string, changes: any) {
@@ -176,5 +184,53 @@ describe('SyncOutboxBatchUseCase', () => {
     // No duplicate sessions or duplicate WS messages
     expect(sessionRepo.sessions).toHaveLength(1);
     expect(wsHub.messages).toHaveLength(1);
+  });
+
+  it('should associate synced records and audit log with the provided tenantId', async () => {
+    const events: SyncEventDTO[] = [
+      {
+        id: 'evt-tenant-sess',
+        entity: 'table_session',
+        action: 'INSERT',
+        entityId: 'sess-tenant',
+        payload: {
+          id: 'sess-tenant',
+          tableId: 'tbl-tenant',
+          sessionWord: 'VODKA-01',
+          status: 'active',
+          openedAt: 1727189500000,
+        },
+        createdAt: 1727189500000,
+      },
+      {
+        id: 'evt-tenant-call',
+        entity: 'waiter_call',
+        action: 'INSERT',
+        entityId: 'call-tenant',
+        payload: {
+          id: 'call-tenant',
+          tableId: 'tbl-tenant',
+          sessionId: 'sess-tenant',
+          tableName: 'Mesa 10',
+          sessionWord: 'VODKA-01',
+          reason: 'waiter',
+          status: 'pending',
+          createdAt: 1727189510000,
+        },
+        createdAt: 1727189510000,
+      },
+    ];
+
+    const result = await useCase.execute(events, 'bar-rooftop');
+
+    expect(result.syncedIds).toEqual(['evt-tenant-sess', 'evt-tenant-call']);
+    expect(sessionRepo.sessions[0].tenantId).toBe('bar-rooftop');
+    expect(callRepo.calls[0].tenantId).toBe('bar-rooftop');
+
+    // Audit log records must have tenantId
+    const auditRecordSess = syncAuditRepo.records.find((r) => r.clientEventId === 'evt-tenant-sess');
+    const auditRecordCall = syncAuditRepo.records.find((r) => r.clientEventId === 'evt-tenant-call');
+    expect(auditRecordSess?.tenantId).toBe('bar-rooftop');
+    expect(auditRecordCall?.tenantId).toBe('bar-rooftop');
   });
 });

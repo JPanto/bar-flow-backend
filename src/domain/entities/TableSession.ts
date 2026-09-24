@@ -2,6 +2,7 @@ export type SessionStatus = 'active' | 'closed';
 
 export interface TableSessionProps {
   id: string;
+  tenantId?: string;
   tableId: string;
   sessionWord: string;
   status: SessionStatus;
@@ -11,6 +12,7 @@ export interface TableSessionProps {
 
 export class TableSession {
   public readonly id: string;
+  public tenantId: string;
   public readonly tableId: string;
   public readonly sessionWord: string;
   public status: SessionStatus;
@@ -19,6 +21,7 @@ export class TableSession {
 
   constructor(props: TableSessionProps) {
     this.id = props.id;
+    this.tenantId = props.tenantId ?? 'default';
     this.tableId = props.tableId;
     this.sessionWord = props.sessionWord;
     this.status = props.status;

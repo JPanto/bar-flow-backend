@@ -165,4 +165,105 @@ describe('Fastify HTTP API Server', () => {
     const body = JSON.parse(response.payload);
     expect(body.error).toBe('Validation failed');
   });
+
+  it('GET /api/state/initial should pass tenantId from JWT to initialStateUseCase', async () => {
+    let capturedTenantId: string | undefined;
+    mockStateUseCase.execute = async (tenantId: string) => {
+      capturedTenantId = tenantId;
+      return {
+        tables: [],
+        activeSessions: [],
+        activeCalls: [],
+        serverTime: 1727189500000,
+      };
+    };
+
+    const customToken = createTestJwt({
+      sub: 'staff-user-2',
+      email: 'staff2@bar.com',
+      role: 'staff',
+      tenant_id: 'bar-rooftop-42',
+    });
+
+    const response = await app.inject({
+      method: 'GET',
+      url: '/api/state/initial',
+      headers: { authorization: `Bearer ${customToken}` },
+    });
+
+    expect(response.statusCode).toBe(200);
+    expect(capturedTenantId).toBe('bar-rooftop-42');
+  });
+
+  it('POST /api/sync should pass tenantId from JWT to syncUseCase', async () => {
+    let capturedTenantId: string | undefined;
+    mockSyncUseCase.execute = async (events: any[], tenantId: string) => {
+      capturedTenantId = tenantId;
+      return {
+        success: true,
+        syncedIds: events.map((e) => e.id),
+        processedAt: 1727189500000,
+      };
+    };
+
+    const customToken = createTestJwt({
+      sub: 'staff-user-3',
+      email: 'staff3@bar.com',
+      role: 'staff',
+      tenant_id: 'bar-beach-99',
+    });
+
+    const response = await app.inject({
+      method: 'POST',
+      url: '/api/sync',
+      headers: { authorization: `Bearer ${customToken}` },
+      payload: {
+        events: [
+          {
+            id: 'evt-tenant-post',
+            entity: 'table_session',
+            action: 'INSERT',
+            entityId: 'sess-tenant',
+            payload: { sessionWord: 'BEACH-01' },
+            createdAt: 1727189500000,
+          },
+        ],
+      },
+    });
+
+    expect(response.statusCode).toBe(200);
+    expect(capturedTenantId).toBe('bar-beach-99');
+  });
+
+  it('POST /api/sync should default to "default" tenant when unauthenticated guest calls waiter', async () => {
+    let capturedTenantId: string | undefined;
+    mockSyncUseCase.execute = async (events: any[], tenantId: string) => {
+      capturedTenantId = tenantId;
+      return {
+        success: true,
+        syncedIds: events.map((e) => e.id),
+        processedAt: 1727189500000,
+      };
+    };
+
+    const response = await app.inject({
+      method: 'POST',
+      url: '/api/sync',
+      payload: {
+        events: [
+          {
+            id: 'call-unauth-default',
+            entity: 'waiter_call',
+            action: 'INSERT',
+            entityId: 'call-default',
+            payload: { tableId: 't-1', reason: 'bill' },
+            createdAt: 1727189500000,
+          },
+        ],
+      },
+    });
+
+    expect(response.statusCode).toBe(200);
+    expect(capturedTenantId).toBe('default');
+  });
 });

@@ -1,4 +1,4 @@
-import { eq } from 'drizzle-orm';
+import { eq, and } from 'drizzle-orm';
 import { DatabaseInstance } from '../db/client.js';
 import { restaurantTables } from '../db/schema.js';
 import { ITableRepository } from '../../domain/repositories/ITableRepository.js';
@@ -18,16 +18,24 @@ export class DrizzleTableRepository implements ITableRepository {
     return new RestaurantTable(rows[0]);
   }
 
-  public async findAll(): Promise<RestaurantTable[]> {
-    const rows = await this.db.select().from(restaurantTables);
-    return rows.map((r) => new RestaurantTable(r));
-  }
-
-  public async findByZoneId(zoneId: string): Promise<RestaurantTable[]> {
+  public async findAll(tenantId: string = 'default'): Promise<RestaurantTable[]> {
     const rows = await this.db
       .select()
       .from(restaurantTables)
-      .where(eq(restaurantTables.zoneId, zoneId));
+      .where(eq(restaurantTables.tenantId, tenantId));
+    return rows.map((r) => new RestaurantTable(r));
+  }
+
+  public async findByZoneId(zoneId: string, tenantId: string = 'default'): Promise<RestaurantTable[]> {
+    const rows = await this.db
+      .select()
+      .from(restaurantTables)
+      .where(
+        and(
+          eq(restaurantTables.zoneId, zoneId),
+          eq(restaurantTables.tenantId, tenantId)
+        )
+      );
     return rows.map((r) => new RestaurantTable(r));
   }
 
@@ -36,6 +44,7 @@ export class DrizzleTableRepository implements ITableRepository {
       .insert(restaurantTables)
       .values({
         id: table.id,
+        tenantId: table.tenantId ?? 'default',
         zoneId: table.zoneId,
         name: table.name,
         shape: table.shape,
@@ -51,6 +60,7 @@ export class DrizzleTableRepository implements ITableRepository {
       .onConflictDoUpdate({
         target: restaurantTables.id,
         set: {
+          tenantId: table.tenantId ?? 'default',
           name: table.name,
           shape: table.shape,
           x: table.x,

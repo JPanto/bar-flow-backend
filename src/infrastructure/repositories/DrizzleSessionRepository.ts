@@ -37,11 +37,16 @@ export class DrizzleSessionRepository implements ITableSessionRepository {
     });
   }
 
-  public async findActiveSessions(): Promise<TableSession[]> {
+  public async findActiveSessions(tenantId: string = 'default'): Promise<TableSession[]> {
     const rows = await this.db
       .select()
       .from(tableSessions)
-      .where(eq(tableSessions.status, 'active'));
+      .where(
+        and(
+          eq(tableSessions.tenantId, tenantId),
+          eq(tableSessions.status, 'active')
+        )
+      );
 
     return rows.map(
       (r) =>
@@ -57,6 +62,7 @@ export class DrizzleSessionRepository implements ITableSessionRepository {
       .insert(tableSessions)
       .values({
         id: session.id,
+        tenantId: session.tenantId ?? 'default',
         tableId: session.tableId,
         sessionWord: session.sessionWord,
         status: session.status,
@@ -66,6 +72,7 @@ export class DrizzleSessionRepository implements ITableSessionRepository {
       .onConflictDoUpdate({
         target: tableSessions.id,
         set: {
+          tenantId: session.tenantId ?? 'default',
           sessionWord: session.sessionWord,
           status: session.status,
           closedAt: session.closedAt,

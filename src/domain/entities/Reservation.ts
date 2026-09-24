@@ -2,6 +2,7 @@ export type ReservationStatus = 'confirmed' | 'seated' | 'cancelled' | 'no_show'
 
 export interface ReservationProps {
   id: string;
+  tenantId?: string;
   tableId?: string | null;
   customerName: string;
   customerPhone: string;
@@ -16,6 +17,7 @@ export interface ReservationProps {
 
 export class Reservation {
   public readonly id: string;
+  public tenantId: string;
   public tableId: string | null;
   public customerName: string;
   public customerPhone: string;
@@ -29,6 +31,7 @@ export class Reservation {
 
   constructor(props: ReservationProps) {
     this.id = props.id;
+    this.tenantId = props.tenantId ?? 'default';
     this.tableId = props.tableId ?? null;
     this.customerName = props.customerName;
     this.customerPhone = props.customerPhone;

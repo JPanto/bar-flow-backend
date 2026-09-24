@@ -73,7 +73,18 @@ describe('Domain Entities', () => {
     });
 
     expect(session.sessionWord).toBe('MOJITO-24');
+    expect(session.tenantId).toBe('default');
     expect(session.isActive()).toBe(true);
+
+    const customSession = new TableSession({
+      id: 's-2',
+      tenantId: 'bar-rooftop',
+      tableId: 't-2',
+      sessionWord: 'GIN-99',
+      status: 'active',
+      openedAt: 1727189500000,
+    });
+    expect(customSession.tenantId).toBe('bar-rooftop');
 
     session.close(1727189600000);
     expect(session.isActive()).toBe(false);
@@ -121,7 +132,21 @@ describe('Domain Entities', () => {
     });
 
     expect(res.customerName).toBe('Carlos Gómez');
+    expect(res.tenantId).toBe('default');
     expect(res.pax).toBe(4);
     expect(res.status).toBe('confirmed');
+
+    const customRes = new Reservation({
+      id: 'r-2',
+      tenantId: 'bar-rooftop',
+      customerName: 'Ana López',
+      customerPhone: '+57 300 987 6543',
+      date: '2026-09-24',
+      time: '21:00',
+      pax: 2,
+      status: 'confirmed',
+      createdAt: 1727189500000,
+    });
+    expect(customRes.tenantId).toBe('bar-rooftop');
   });
 });

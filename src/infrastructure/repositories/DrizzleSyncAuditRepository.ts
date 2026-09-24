@@ -21,6 +21,7 @@ export class DrizzleSyncAuditRepository implements ISyncAuditRepository {
 
   public async recordSync(record: SyncAuditRecord): Promise<void> {
     await this.db.insert(syncAuditLog).values({
+      tenantId: record.tenantId ?? 'default',
       clientEventId: record.clientEventId,
       entity: record.entity,
       action: record.action,
@@ -33,6 +34,7 @@ export class DrizzleSyncAuditRepository implements ISyncAuditRepository {
     if (records.length === 0) return;
     await this.db.insert(syncAuditLog).values(
       records.map((r) => ({
+        tenantId: r.tenantId ?? 'default',
         clientEventId: r.clientEventId,
         entity: r.entity,
         action: r.action,

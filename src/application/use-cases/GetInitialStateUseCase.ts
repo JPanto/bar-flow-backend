@@ -11,12 +11,12 @@ export class GetInitialStateUseCase {
     private callRepo: IWaiterCallRepository
   ) {}
 
-  public async execute() {
+  public async execute(tenantId: string = 'default') {
     const [zones, tables, activeSessions, activeCalls] = await Promise.all([
-      this.zoneRepo.findAll(),
-      this.tableRepo.findAll(),
-      this.sessionRepo.findActiveSessions(),
-      this.callRepo.findActiveCalls(),
+      this.zoneRepo.findAll(tenantId),
+      this.tableRepo.findAll(tenantId),
+      this.sessionRepo.findActiveSessions(tenantId),
+      this.callRepo.findActiveCalls(tenantId),
     ]);
 
     return {

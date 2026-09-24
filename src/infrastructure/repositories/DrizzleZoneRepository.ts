@@ -18,8 +18,11 @@ export class DrizzleZoneRepository implements IZoneRepository {
     return new Zone(rows[0]);
   }
 
-  public async findAll(): Promise<Zone[]> {
-    const rows = await this.db.select().from(zones);
+  public async findAll(tenantId: string = 'default'): Promise<Zone[]> {
+    const rows = await this.db
+      .select()
+      .from(zones)
+      .where(eq(zones.tenantId, tenantId));
     return rows.map((r) => new Zone(r));
   }
 
@@ -28,6 +31,7 @@ export class DrizzleZoneRepository implements IZoneRepository {
       .insert(zones)
       .values({
         id: zone.id,
+        tenantId: zone.tenantId ?? 'default',
         name: zone.name,
         width: zone.width,
         height: zone.height,
@@ -37,6 +41,7 @@ export class DrizzleZoneRepository implements IZoneRepository {
       .onConflictDoUpdate({
         target: zones.id,
         set: {
+          tenantId: zone.tenantId ?? 'default',
           name: zone.name,
           width: zone.width,
           height: zone.height,

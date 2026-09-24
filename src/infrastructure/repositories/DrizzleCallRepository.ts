@@ -1,4 +1,4 @@
-import { eq, or } from 'drizzle-orm';
+import { eq, or, and } from 'drizzle-orm';
 import { DatabaseInstance } from '../db/client.js';
 import { waiterCalls } from '../db/schema.js';
 import { IWaiterCallRepository } from '../../domain/repositories/IWaiterCallRepository.js';
@@ -18,12 +18,15 @@ export class DrizzleCallRepository implements IWaiterCallRepository {
     return new WaiterCall(rows[0]);
   }
 
-  public async findActiveCalls(): Promise<WaiterCall[]> {
+  public async findActiveCalls(tenantId: string = 'default'): Promise<WaiterCall[]> {
     const rows = await this.db
       .select()
       .from(waiterCalls)
       .where(
-        or(eq(waiterCalls.status, 'pending'), eq(waiterCalls.status, 'attending'))
+        and(
+          eq(waiterCalls.tenantId, tenantId),
+          or(eq(waiterCalls.status, 'pending'), eq(waiterCalls.status, 'attending'))
+        )
       )
       .orderBy(waiterCalls.createdAt);
 
@@ -44,6 +47,7 @@ export class DrizzleCallRepository implements IWaiterCallRepository {
       .insert(waiterCalls)
       .values({
         id: call.id,
+        tenantId: call.tenantId ?? 'default',
         tableId: call.tableId,
         sessionId: call.sessionId,
         tableName: call.tableName,
@@ -57,6 +61,7 @@ export class DrizzleCallRepository implements IWaiterCallRepository {
       .onConflictDoUpdate({
         target: waiterCalls.id,
         set: {
+          tenantId: call.tenantId ?? 'default',
           reason: call.reason,
           status: call.status,
           attendingAt: call.attendingAt,

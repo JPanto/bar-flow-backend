@@ -12,8 +12,9 @@ export async function stateRoutes(fastify: FastifyInstance, opts: StateRouteOpti
   fastify.get(
     '/api/state/initial',
     { preHandler: [verifyAuth] },
-    async (_request, reply) => {
-      const state = await initialStateUseCase.execute();
+    async (request, reply) => {
+      const tenantId = request.user?.tenantId || 'default';
+      const state = await initialStateUseCase.execute(tenantId);
       return reply.status(200).send(state);
     }
   );

@@ -1,5 +1,6 @@
 export interface SyncAuditRecord {
   id?: string;
+  tenantId?: string;
   clientEventId: string;
   entity: string;
   action: string;

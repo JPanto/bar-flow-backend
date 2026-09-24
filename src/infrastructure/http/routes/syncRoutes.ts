@@ -37,7 +37,8 @@ export async function syncRoutes(fastify: FastifyInstance, opts: SyncRouteOption
         }
       }
 
-      const result = await syncUseCase.execute(parseResult.data.events);
+      const tenantId = request.user?.tenantId || 'default';
+      const result = await syncUseCase.execute(parseResult.data.events, tenantId);
       return reply.status(200).send(result);
     }
   );

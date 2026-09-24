@@ -13,6 +13,7 @@ export class CreateWaiterCallUseCase {
   public async execute(dto: CreateCallDTO): Promise<WaiterCall> {
     const call = new WaiterCall({
       id: randomUUID(),
+      tenantId: dto.tenantId ?? 'default',
       tableId: dto.tableId,
       sessionId: dto.sessionId,
       tableName: dto.tableName,

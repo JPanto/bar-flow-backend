@@ -5,6 +5,8 @@ import { ITableSessionRepository } from '../../domain/repositories/ITableSession
 import { IWaiterCallRepository } from '../../domain/repositories/IWaiterCallRepository.js';
 import { IWebSocketHub } from '../ports/IWebSocketHub.js';
 import { SyncEventDTO } from '../dtos/syncDto.js';
+import { Zone } from '../../domain/entities/Zone.js';
+import { RestaurantTable } from '../../domain/entities/Table.js';
 import { TableSession } from '../../domain/entities/TableSession.js';
 import { WaiterCall } from '../../domain/entities/WaiterCall.js';
 
@@ -40,7 +42,10 @@ export class SyncOutboxBatchUseCase {
     this.wsHub = deps.wsHub;
   }
 
-  public async execute(events: SyncEventDTO[]): Promise<SyncBatchResult> {
+  public async execute(
+    events: SyncEventDTO[],
+    tenantId: string = 'default'
+  ): Promise<SyncBatchResult> {
     const syncedIds: string[] = [];
 
     for (const event of events) {
@@ -52,10 +57,11 @@ export class SyncOutboxBatchUseCase {
       }
 
       // 2. Process mutation per entity type
-      await this.processEvent(event);
+      await this.processEvent(event, tenantId);
 
       // 3. Record in audit log
       await this.syncAuditRepo.recordSync({
+        tenantId,
         clientEventId: event.id,
         entity: event.entity,
         action: event.action,
@@ -73,7 +79,7 @@ export class SyncOutboxBatchUseCase {
     };
   }
 
-  private async processEvent(event: SyncEventDTO): Promise<void> {
+  private async processEvent(event: SyncEventDTO, tenantId: string): Promise<void> {
     const { entity, action, payload } = event;
 
     switch (entity) {
@@ -81,6 +87,7 @@ export class SyncOutboxBatchUseCase {
         if (action === 'INSERT') {
           const session = new TableSession({
             id: payload.id,
+            tenantId: payload.tenantId || tenantId,
             tableId: payload.tableId,
             sessionWord: payload.sessionWord,
             status: payload.status || 'active',
@@ -111,6 +118,7 @@ export class SyncOutboxBatchUseCase {
         if (action === 'INSERT') {
           const call = new WaiterCall({
             id: payload.id,
+            tenantId: payload.tenantId || tenantId,
             tableId: payload.tableId,
             sessionId: payload.sessionId,
             tableName: payload.tableName,
@@ -147,10 +155,25 @@ export class SyncOutboxBatchUseCase {
 
       case 'table': {
         if (action === 'INSERT') {
-          await this.tableRepo.save(payload as any);
+          const table = new RestaurantTable({
+            id: payload.id,
+            tenantId: payload.tenantId || tenantId,
+            zoneId: payload.zoneId,
+            name: payload.name,
+            shape: payload.shape,
+            x: payload.x,
+            y: payload.y,
+            width: payload.width,
+            height: payload.height,
+            rotation: payload.rotation ?? 0,
+            seats: payload.seats,
+            status: payload.status || 'available',
+            updatedAt: payload.updatedAt || Date.now(),
+          });
+          await this.tableRepo.save(table);
           this.wsHub?.broadcastToAll({
             type: 'TABLE_UPDATED',
-            payload,
+            payload: table,
             timestamp: Date.now(),
           });
         } else if (action === 'UPDATE') {
@@ -174,10 +197,19 @@ export class SyncOutboxBatchUseCase {
       case 'zone': {
         if (this.zoneRepo) {
           if (action === 'INSERT') {
-            await this.zoneRepo.save(payload as any);
+            const zone = new Zone({
+              id: payload.id,
+              tenantId: payload.tenantId || tenantId,
+              name: payload.name,
+              width: payload.width,
+              height: payload.height,
+              isDefault: payload.isDefault ?? false,
+              createdAt: payload.createdAt || Date.now(),
+            });
+            await this.zoneRepo.save(zone);
             this.wsHub?.broadcastToAll({
               type: 'ZONE_CREATED',
-              payload,
+              payload: zone,
               timestamp: Date.now(),
             });
           } else if (action === 'UPDATE') {
