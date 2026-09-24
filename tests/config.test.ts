@@ -12,6 +12,7 @@ describe('Environment Configuration Validation', () => {
     expect(env.NODE_ENV).toBe('development');
     expect(env.CORS_ORIGIN).toBe('*');
     expect(env.DATABASE_URL).toBe('postgresql://user:pass@localhost:5432/barflow');
+    expect(env.SUPABASE_JWT_SECRET).toBe('dev-secret-only');
   });
 
   it('should parse custom PORT and environment', () => {
@@ -20,12 +21,14 @@ describe('Environment Configuration Validation', () => {
       NODE_ENV: 'production',
       DATABASE_URL: 'postgresql://neon.tech/barflow',
       CORS_ORIGIN: 'https://barflow.pages.dev',
+      SUPABASE_JWT_SECRET: 'custom-secret-key-12345',
     };
 
     const env = validateEnv(raw);
     expect(env.PORT).toBe(5000);
     expect(env.NODE_ENV).toBe('production');
     expect(env.CORS_ORIGIN).toBe('https://barflow.pages.dev');
+    expect(env.SUPABASE_JWT_SECRET).toBe('custom-secret-key-12345');
   });
 
   it('should throw when DATABASE_URL is missing', () => {

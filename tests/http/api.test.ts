@@ -3,15 +3,18 @@ import { buildServer } from '../../src/infrastructure/http/server.js';
 import { SyncOutboxBatchUseCase } from '../../src/application/use-cases/SyncOutboxBatchUseCase.js';
 import { GetInitialStateUseCase } from '../../src/application/use-cases/GetInitialStateUseCase.js';
 import { FastifyWebSocketHub } from '../../src/infrastructure/ws/FastifyWebSocketHub.js';
+import { createTestJwt } from '../../src/infrastructure/http/middleware/authMiddleware.js';
 
 describe('Fastify HTTP API Server', () => {
   let app: any;
   let mockSyncUseCase: any;
   let mockStateUseCase: any;
   let wsHub: FastifyWebSocketHub;
+  let staffToken: string;
 
   beforeEach(async () => {
     wsHub = new FastifyWebSocketHub();
+    staffToken = createTestJwt({ sub: 'staff-user-1', email: 'staff@bar.com', role: 'staff' });
 
     mockSyncUseCase = {
       execute: async (events: any[]) => ({
@@ -53,10 +56,22 @@ describe('Fastify HTTP API Server', () => {
     expect(body.service).toBe('bar-flow-backend');
   });
 
-  it('GET /api/state/initial should return initial restaurant state', async () => {
+  it('GET /api/state/initial should reject unauthenticated requests with 401', async () => {
     const response = await app.inject({
       method: 'GET',
       url: '/api/state/initial',
+    });
+
+    expect(response.statusCode).toBe(401);
+    const body = JSON.parse(response.payload);
+    expect(body.error).toBe('Unauthorized');
+  });
+
+  it('GET /api/state/initial should return initial restaurant state when authenticated', async () => {
+    const response = await app.inject({
+      method: 'GET',
+      url: '/api/state/initial',
+      headers: { authorization: `Bearer ${staffToken}` },
     });
 
     expect(response.statusCode).toBe(200);
@@ -65,10 +80,11 @@ describe('Fastify HTTP API Server', () => {
     expect(body.tables[0].name).toBe('Mesa 1');
   });
 
-  it('POST /api/sync should validate batch payload and return synced IDs', async () => {
+  it('POST /api/sync should allow authenticated staff to sync table sessions', async () => {
     const response = await app.inject({
       method: 'POST',
       url: '/api/sync',
+      headers: { authorization: `Bearer ${staffToken}` },
       payload: {
         events: [
           {
@@ -87,6 +103,53 @@ describe('Fastify HTTP API Server', () => {
     const body = JSON.parse(response.payload);
     expect(body.success).toBe(true);
     expect(body.syncedIds).toEqual(['evt-101']);
+  });
+
+  it('POST /api/sync should allow unauthenticated guests to sync waiter calls', async () => {
+    const response = await app.inject({
+      method: 'POST',
+      url: '/api/sync',
+      payload: {
+        events: [
+          {
+            id: 'call-evt-1',
+            entity: 'waiter_call',
+            action: 'INSERT',
+            entityId: 'call-1',
+            payload: { tableId: 't-1', type: 'bill' },
+            createdAt: 1727189500000,
+          },
+        ],
+      },
+    });
+
+    expect(response.statusCode).toBe(200);
+    const body = JSON.parse(response.payload);
+    expect(body.success).toBe(true);
+    expect(body.syncedIds).toEqual(['call-evt-1']);
+  });
+
+  it('POST /api/sync should reject unauthenticated requests containing non-waiter-call events with 401', async () => {
+    const response = await app.inject({
+      method: 'POST',
+      url: '/api/sync',
+      payload: {
+        events: [
+          {
+            id: 'evt-unauth',
+            entity: 'table_session',
+            action: 'INSERT',
+            entityId: 'sess-1',
+            payload: { sessionWord: 'HACK-01' },
+            createdAt: 1727189500000,
+          },
+        ],
+      },
+    });
+
+    expect(response.statusCode).toBe(401);
+    const body = JSON.parse(response.payload);
+    expect(body.error).toBe('Unauthorized');
   });
 
   it('POST /api/sync should reject invalid event payloads with 400', async () => {
