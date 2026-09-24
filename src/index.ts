@@ -1,5 +1,6 @@
 import { env } from './config/env.js';
 import { db } from './infrastructure/db/client.js';
+import { DrizzleZoneRepository } from './infrastructure/repositories/DrizzleZoneRepository.js';
 import { DrizzleTableRepository } from './infrastructure/repositories/DrizzleTableRepository.js';
 import { DrizzleSessionRepository } from './infrastructure/repositories/DrizzleSessionRepository.js';
 import { DrizzleCallRepository } from './infrastructure/repositories/DrizzleCallRepository.js';
@@ -11,6 +12,7 @@ import { buildServer } from './infrastructure/http/server.js';
 
 async function main() {
   // 1. Repositories
+  const zoneRepo = new DrizzleZoneRepository(db);
   const tableRepo = new DrizzleTableRepository(db);
   const sessionRepo = new DrizzleSessionRepository(db);
   const callRepo = new DrizzleCallRepository(db);
@@ -22,6 +24,7 @@ async function main() {
   // 3. Use Cases
   const syncUseCase = new SyncOutboxBatchUseCase({
     syncAuditRepo,
+    zoneRepo,
     tableRepo,
     sessionRepo,
     callRepo,
@@ -29,6 +32,7 @@ async function main() {
   });
 
   const initialStateUseCase = new GetInitialStateUseCase(
+    zoneRepo,
     tableRepo,
     sessionRepo,
     callRepo

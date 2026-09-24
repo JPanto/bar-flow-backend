@@ -5,6 +5,6 @@ export interface RealtimeMessage<T = unknown> {
 }
 
 export interface IWebSocketHub {
-  broadcastToAll(message: RealtimeMessage): void;
-  broadcastToChannel(channel: string, message: RealtimeMessage): void;
+  broadcastToAll(message: RealtimeMessage, excludeSocket?: unknown): void;
+  broadcastToChannel(channel: string, message: RealtimeMessage, excludeSocket?: unknown): void;
 }

@@ -32,11 +32,11 @@ export class FastifyWebSocketHub implements IWebSocketHub {
     return this.clients.size;
   }
 
-  public broadcastToAll(message: RealtimeMessage): void {
+  public broadcastToAll(message: RealtimeMessage, excludeSocket?: WebSocket): void {
     const serialized = JSON.stringify(message);
 
     for (const [socket] of this.clients) {
-      if (socket.readyState === 1) {
+      if (socket !== excludeSocket && socket.readyState === 1) {
         // 1 = WebSocket.OPEN
         try {
           socket.send(serialized);
@@ -47,11 +47,11 @@ export class FastifyWebSocketHub implements IWebSocketHub {
     }
   }
 
-  public broadcastToChannel(channel: string, message: RealtimeMessage): void {
+  public broadcastToChannel(channel: string, message: RealtimeMessage, excludeSocket?: WebSocket): void {
     const serialized = JSON.stringify(message);
 
     for (const [socket, channels] of this.clients) {
-      if (channels.has(channel) && socket.readyState === 1) {
+      if (socket !== excludeSocket && channels.has(channel) && socket.readyState === 1) {
         try {
           socket.send(serialized);
         } catch {

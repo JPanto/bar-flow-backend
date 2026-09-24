@@ -1,4 +1,5 @@
 import { ISyncAuditRepository } from '../../domain/repositories/ISyncAuditRepository.js';
+import { IZoneRepository } from '../../domain/repositories/IZoneRepository.js';
 import { ITableRepository } from '../../domain/repositories/ITableRepository.js';
 import { ITableSessionRepository } from '../../domain/repositories/ITableSessionRepository.js';
 import { IWaiterCallRepository } from '../../domain/repositories/IWaiterCallRepository.js';
@@ -9,6 +10,7 @@ import { WaiterCall } from '../../domain/entities/WaiterCall.js';
 
 export interface SyncOutboxBatchDependencies {
   syncAuditRepo: ISyncAuditRepository;
+  zoneRepo?: IZoneRepository;
   tableRepo: ITableRepository;
   sessionRepo: ITableSessionRepository;
   callRepo: IWaiterCallRepository;
@@ -23,6 +25,7 @@ export interface SyncBatchResult {
 
 export class SyncOutboxBatchUseCase {
   private syncAuditRepo: ISyncAuditRepository;
+  private zoneRepo?: IZoneRepository;
   private tableRepo: ITableRepository;
   private sessionRepo: ITableSessionRepository;
   private callRepo: IWaiterCallRepository;
@@ -30,6 +33,7 @@ export class SyncOutboxBatchUseCase {
 
   constructor(deps: SyncOutboxBatchDependencies) {
     this.syncAuditRepo = deps.syncAuditRepo;
+    this.zoneRepo = deps.zoneRepo;
     this.tableRepo = deps.tableRepo;
     this.sessionRepo = deps.sessionRepo;
     this.callRepo = deps.callRepo;
@@ -144,8 +148,46 @@ export class SyncOutboxBatchUseCase {
       case 'table': {
         if (action === 'INSERT') {
           await this.tableRepo.save(payload as any);
+          this.wsHub?.broadcastToAll({
+            type: 'TABLE_UPDATED',
+            payload,
+            timestamp: Date.now(),
+          });
         } else if (action === 'UPDATE') {
           await this.tableRepo.update(payload.id, payload);
+          this.wsHub?.broadcastToAll({
+            type: 'TABLE_UPDATED',
+            payload,
+            timestamp: Date.now(),
+          });
+        } else if (action === 'DELETE') {
+          await this.tableRepo.delete(payload.id || event.entityId);
+          this.wsHub?.broadcastToAll({
+            type: 'TABLE_DELETED',
+            payload: { id: payload.id || event.entityId },
+            timestamp: Date.now(),
+          });
+        }
+        break;
+      }
+
+      case 'zone': {
+        if (this.zoneRepo) {
+          if (action === 'INSERT') {
+            await this.zoneRepo.save(payload as any);
+            this.wsHub?.broadcastToAll({
+              type: 'ZONE_CREATED',
+              payload,
+              timestamp: Date.now(),
+            });
+          } else if (action === 'UPDATE') {
+            await this.zoneRepo.update(payload.id, payload);
+            this.wsHub?.broadcastToAll({
+              type: 'ZONE_UPDATED',
+              payload,
+              timestamp: Date.now(),
+            });
+          }
         }
         break;
       }

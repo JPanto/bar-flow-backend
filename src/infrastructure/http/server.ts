@@ -45,6 +45,9 @@ export async function buildServer(options: ServerOptions): Promise<FastifyInstan
             wsHub.unsubscribe(socket, parsed.channel);
           } else if (parsed.action === 'ping') {
             socket.send(JSON.stringify({ type: 'pong', timestamp: Date.now() }));
+          } else if (parsed.type) {
+            // Forward client realtime event to all other clients
+            wsHub.broadcastToAll(parsed, socket);
           }
         } catch {
           // ignore malformed client packets
