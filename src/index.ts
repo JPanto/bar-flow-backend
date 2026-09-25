@@ -6,6 +6,8 @@ import { DrizzleTableRepository } from './infrastructure/repositories/DrizzleTab
 import { DrizzleSessionRepository } from './infrastructure/repositories/DrizzleSessionRepository.js';
 import { DrizzleCallRepository } from './infrastructure/repositories/DrizzleCallRepository.js';
 import { DrizzleSyncAuditRepository } from './infrastructure/repositories/DrizzleSyncAuditRepository.js';
+import { DrizzleProductRepository } from './infrastructure/repositories/DrizzleProductRepository.js';
+import { DrizzleOrderRepository } from './infrastructure/repositories/DrizzleOrderRepository.js';
 import { FastifyWebSocketHub } from './infrastructure/ws/FastifyWebSocketHub.js';
 import { SyncOutboxBatchUseCase } from './application/use-cases/SyncOutboxBatchUseCase.js';
 import { GetInitialStateUseCase } from './application/use-cases/GetInitialStateUseCase.js';
@@ -26,6 +28,8 @@ async function main() {
   const sessionRepo = new DrizzleSessionRepository(db);
   const callRepo = new DrizzleCallRepository(db);
   const syncAuditRepo = new DrizzleSyncAuditRepository(db);
+  const productRepo = new DrizzleProductRepository(db);
+  const orderRepo = new DrizzleOrderRepository(db);
 
   // 2. WebSocket Hub
   const wsHub = new FastifyWebSocketHub();
@@ -37,6 +41,8 @@ async function main() {
     tableRepo,
     sessionRepo,
     callRepo,
+    productRepo,
+    orderRepo,
     wsHub,
   });
 

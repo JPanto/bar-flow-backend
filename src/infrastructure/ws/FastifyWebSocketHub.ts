@@ -1,5 +1,7 @@
 import { WebSocket } from 'ws';
-import { IWebSocketHub, RealtimeMessage } from '../../application/ports/IWebSocketHub.js';
+import { IWebSocketHub, RealtimeMessage, ALLOWED_REALTIME_EVENTS } from '../../application/ports/IWebSocketHub.js';
+
+export { ALLOWED_REALTIME_EVENTS };
 
 export class FastifyWebSocketHub implements IWebSocketHub {
   private clients = new Map<WebSocket, Set<string>>();

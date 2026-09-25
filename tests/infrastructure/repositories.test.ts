@@ -4,6 +4,9 @@ import { DrizzleSessionRepository } from '../../src/infrastructure/repositories/
 import { DrizzleCallRepository } from '../../src/infrastructure/repositories/DrizzleCallRepository.js';
 import { DrizzleSyncAuditRepository } from '../../src/infrastructure/repositories/DrizzleSyncAuditRepository.js';
 
+import { DrizzleProductRepository } from '../../src/infrastructure/repositories/DrizzleProductRepository.js';
+import { DrizzleOrderRepository } from '../../src/infrastructure/repositories/DrizzleOrderRepository.js';
+
 describe('Drizzle Repositories Instantiation', () => {
   const dummyDb = {} as any;
 
@@ -12,10 +15,14 @@ describe('Drizzle Repositories Instantiation', () => {
     const sessionRepo = new DrizzleSessionRepository(dummyDb);
     const callRepo = new DrizzleCallRepository(dummyDb);
     const syncAuditRepo = new DrizzleSyncAuditRepository(dummyDb);
+    const productRepo = new DrizzleProductRepository(dummyDb);
+    const orderRepo = new DrizzleOrderRepository(dummyDb);
 
     expect(tableRepo).toBeInstanceOf(DrizzleTableRepository);
     expect(sessionRepo).toBeInstanceOf(DrizzleSessionRepository);
     expect(callRepo).toBeInstanceOf(DrizzleCallRepository);
     expect(syncAuditRepo).toBeInstanceOf(DrizzleSyncAuditRepository);
+    expect(productRepo).toBeInstanceOf(DrizzleProductRepository);
+    expect(orderRepo).toBeInstanceOf(DrizzleOrderRepository);
   });
 });

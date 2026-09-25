@@ -84,4 +84,14 @@ describe('FastifyWebSocketHub', () => {
 
     expect(ws.sentMessages).toHaveLength(0);
   });
+
+  it('includes all domain events in ALLOWED_REALTIME_EVENTS', async () => {
+    const { ALLOWED_REALTIME_EVENTS } = await import('../../src/infrastructure/ws/FastifyWebSocketHub.js');
+    expect(ALLOWED_REALTIME_EVENTS).toContain('ORDER_CREATED');
+    expect(ALLOWED_REALTIME_EVENTS).toContain('ORDER_CONFIRMED');
+    expect(ALLOWED_REALTIME_EVENTS).toContain('ORDER_REJECTED');
+    expect(ALLOWED_REALTIME_EVENTS).toContain('STOCK_UPDATED');
+    expect(ALLOWED_REALTIME_EVENTS).toContain('TABLE_UPDATED');
+    expect(ALLOWED_REALTIME_EVENTS).toContain('CALL_CREATED');
+  });
 });
