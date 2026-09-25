@@ -54,7 +54,7 @@ export const tenantUsers = pgTable(
 export const zones = pgTable(
   'zones',
   {
-    id: uuid('id').primaryKey(),
+    id: varchar('id', { length: 100 }).primaryKey(),
     tenantId: varchar('tenant_id', { length: 50 }).default('default').notNull(),
     name: varchar('name', { length: 100 }).notNull(),
     width: integer('width').notNull(),
@@ -71,9 +71,9 @@ export const zones = pgTable(
 export const restaurantTables = pgTable(
   'restaurant_tables',
   {
-    id: uuid('id').primaryKey(),
+    id: varchar('id', { length: 100 }).primaryKey(),
     tenantId: varchar('tenant_id', { length: 50 }).default('default').notNull(),
-    zoneId: uuid('zone_id')
+    zoneId: varchar('zone_id', { length: 100 })
       .references(() => zones.id, { onDelete: 'cascade' })
       .notNull(),
     name: varchar('name', { length: 50 }).notNull(),
@@ -98,9 +98,9 @@ export const restaurantTables = pgTable(
 export const tableSessions = pgTable(
   'table_sessions',
   {
-    id: uuid('id').primaryKey(),
+    id: varchar('id', { length: 100 }).primaryKey(),
     tenantId: varchar('tenant_id', { length: 50 }).default('default').notNull(),
-    tableId: uuid('table_id')
+    tableId: varchar('table_id', { length: 100 })
       .references(() => restaurantTables.id, { onDelete: 'cascade' })
       .notNull(),
     sessionWord: varchar('session_word', { length: 50 }).notNull(),
@@ -118,12 +118,12 @@ export const tableSessions = pgTable(
 export const waiterCalls = pgTable(
   'waiter_calls',
   {
-    id: uuid('id').primaryKey(),
+    id: varchar('id', { length: 100 }).primaryKey(),
     tenantId: varchar('tenant_id', { length: 50 }).default('default').notNull(),
-    tableId: uuid('table_id')
+    tableId: varchar('table_id', { length: 100 })
       .references(() => restaurantTables.id, { onDelete: 'cascade' })
       .notNull(),
-    sessionId: uuid('session_id')
+    sessionId: varchar('session_id', { length: 100 })
       .references(() => tableSessions.id, { onDelete: 'cascade' })
       .notNull(),
     tableName: varchar('table_name', { length: 50 }).notNull(),
@@ -144,9 +144,9 @@ export const waiterCalls = pgTable(
 export const reservations = pgTable(
   'reservations',
   {
-    id: uuid('id').primaryKey(),
+    id: varchar('id', { length: 100 }).primaryKey(),
     tenantId: varchar('tenant_id', { length: 50 }).default('default').notNull(),
-    tableId: uuid('table_id').references(() => restaurantTables.id, { onDelete: 'set null' }),
+    tableId: varchar('table_id', { length: 100 }).references(() => restaurantTables.id, { onDelete: 'set null' }),
     customerName: varchar('customer_name', { length: 150 }).notNull(),
     customerPhone: varchar('customer_phone', { length: 30 }).notNull(),
     customerEmail: varchar('customer_email', { length: 150 }),

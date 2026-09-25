@@ -73,7 +73,7 @@ export async function runIdempotentSchemaBootstrap(pool: pg.Pool): Promise<void>
       );
 
       CREATE TABLE IF NOT EXISTS "zones" (
-        "id" uuid PRIMARY KEY NOT NULL,
+        "id" varchar(100) PRIMARY KEY NOT NULL,
         "tenant_id" varchar(50) DEFAULT 'default' NOT NULL,
         "name" varchar(100) NOT NULL,
         "width" integer NOT NULL,
@@ -83,9 +83,9 @@ export async function runIdempotentSchemaBootstrap(pool: pg.Pool): Promise<void>
       );
 
       CREATE TABLE IF NOT EXISTS "restaurant_tables" (
-        "id" uuid PRIMARY KEY NOT NULL,
+        "id" varchar(100) PRIMARY KEY NOT NULL,
         "tenant_id" varchar(50) DEFAULT 'default' NOT NULL,
-        "zone_id" uuid REFERENCES "zones"("id") ON DELETE CASCADE NOT NULL,
+        "zone_id" varchar(100) REFERENCES "zones"("id") ON DELETE CASCADE NOT NULL,
         "name" varchar(50) NOT NULL,
         "shape" "table_shape" NOT NULL,
         "x" integer NOT NULL,
@@ -99,9 +99,9 @@ export async function runIdempotentSchemaBootstrap(pool: pg.Pool): Promise<void>
       );
 
       CREATE TABLE IF NOT EXISTS "table_sessions" (
-        "id" uuid PRIMARY KEY NOT NULL,
+        "id" varchar(100) PRIMARY KEY NOT NULL,
         "tenant_id" varchar(50) DEFAULT 'default' NOT NULL,
-        "table_id" uuid REFERENCES "restaurant_tables"("id") ON DELETE CASCADE NOT NULL,
+        "table_id" varchar(100) REFERENCES "restaurant_tables"("id") ON DELETE CASCADE NOT NULL,
         "session_word" varchar(50) NOT NULL,
         "status" varchar(20) NOT NULL,
         "opened_at" bigint NOT NULL,
@@ -109,10 +109,10 @@ export async function runIdempotentSchemaBootstrap(pool: pg.Pool): Promise<void>
       );
 
       CREATE TABLE IF NOT EXISTS "waiter_calls" (
-        "id" uuid PRIMARY KEY NOT NULL,
+        "id" varchar(100) PRIMARY KEY NOT NULL,
         "tenant_id" varchar(50) DEFAULT 'default' NOT NULL,
-        "table_id" uuid REFERENCES "restaurant_tables"("id") ON DELETE CASCADE NOT NULL,
-        "session_id" uuid REFERENCES "table_sessions"("id") ON DELETE CASCADE NOT NULL,
+        "table_id" varchar(100) REFERENCES "restaurant_tables"("id") ON DELETE CASCADE NOT NULL,
+        "session_id" varchar(100) REFERENCES "table_sessions"("id") ON DELETE CASCADE NOT NULL,
         "table_name" varchar(50) NOT NULL,
         "session_word" varchar(50) NOT NULL,
         "reason" "call_reason" NOT NULL,
@@ -123,9 +123,9 @@ export async function runIdempotentSchemaBootstrap(pool: pg.Pool): Promise<void>
       );
 
       CREATE TABLE IF NOT EXISTS "reservations" (
-        "id" uuid PRIMARY KEY NOT NULL,
+        "id" varchar(100) PRIMARY KEY NOT NULL,
         "tenant_id" varchar(50) DEFAULT 'default' NOT NULL,
-        "table_id" uuid REFERENCES "restaurant_tables"("id") ON DELETE SET NULL,
+        "table_id" varchar(100) REFERENCES "restaurant_tables"("id") ON DELETE SET NULL,
         "customer_name" varchar(150) NOT NULL,
         "customer_phone" varchar(30) NOT NULL,
         "customer_email" varchar(150),
@@ -146,6 +146,38 @@ export async function runIdempotentSchemaBootstrap(pool: pg.Pool): Promise<void>
         "entity_id" varchar(100) NOT NULL,
         "synced_at" bigint NOT NULL
       );
+
+      -- Migration: If tables were previously created with uuid IDs, alter them to varchar(100)
+      DO $$
+      BEGIN
+        IF EXISTS (
+          SELECT 1 FROM information_schema.columns
+          WHERE table_name = 'zones' AND column_name = 'id' AND data_type = 'uuid'
+        ) THEN
+          ALTER TABLE "restaurant_tables" DROP CONSTRAINT IF EXISTS "restaurant_tables_zone_id_zones_id_fk";
+          ALTER TABLE "table_sessions" DROP CONSTRAINT IF EXISTS "table_sessions_table_id_restaurant_tables_id_fk";
+          ALTER TABLE "waiter_calls" DROP CONSTRAINT IF EXISTS "waiter_calls_table_id_restaurant_tables_id_fk";
+          ALTER TABLE "waiter_calls" DROP CONSTRAINT IF EXISTS "waiter_calls_session_id_table_sessions_id_fk";
+          ALTER TABLE "reservations" DROP CONSTRAINT IF EXISTS "reservations_table_id_restaurant_tables_id_fk";
+
+          ALTER TABLE "zones" ALTER COLUMN "id" TYPE varchar(100);
+          ALTER TABLE "restaurant_tables" ALTER COLUMN "id" TYPE varchar(100);
+          ALTER TABLE "restaurant_tables" ALTER COLUMN "zone_id" TYPE varchar(100);
+          ALTER TABLE "table_sessions" ALTER COLUMN "id" TYPE varchar(100);
+          ALTER TABLE "table_sessions" ALTER COLUMN "table_id" TYPE varchar(100);
+          ALTER TABLE "waiter_calls" ALTER COLUMN "id" TYPE varchar(100);
+          ALTER TABLE "waiter_calls" ALTER COLUMN "table_id" TYPE varchar(100);
+          ALTER TABLE "waiter_calls" ALTER COLUMN "session_id" TYPE varchar(100);
+          ALTER TABLE "reservations" ALTER COLUMN "id" TYPE varchar(100);
+          ALTER TABLE "reservations" ALTER COLUMN "table_id" TYPE varchar(100);
+
+          ALTER TABLE "restaurant_tables" ADD CONSTRAINT "restaurant_tables_zone_id_zones_id_fk" FOREIGN KEY ("zone_id") REFERENCES "zones"("id") ON DELETE CASCADE;
+          ALTER TABLE "table_sessions" ADD CONSTRAINT "table_sessions_table_id_restaurant_tables_id_fk" FOREIGN KEY ("table_id") REFERENCES "restaurant_tables"("id") ON DELETE CASCADE;
+          ALTER TABLE "waiter_calls" ADD CONSTRAINT "waiter_calls_table_id_restaurant_tables_id_fk" FOREIGN KEY ("table_id") REFERENCES "restaurant_tables"("id") ON DELETE CASCADE;
+          ALTER TABLE "waiter_calls" ADD CONSTRAINT "waiter_calls_session_id_table_sessions_id_fk" FOREIGN KEY ("session_id") REFERENCES "table_sessions"("id") ON DELETE CASCADE;
+          ALTER TABLE "reservations" ADD CONSTRAINT "reservations_table_id_restaurant_tables_id_fk" FOREIGN KEY ("table_id") REFERENCES "restaurant_tables"("id") ON DELETE SET NULL;
+        END IF;
+      END $$;
     `);
 
     // 3. Indexes
