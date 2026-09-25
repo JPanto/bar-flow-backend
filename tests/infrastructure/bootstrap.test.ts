@@ -36,6 +36,10 @@ describe('Database Schema Bootstrap', () => {
     expect(ddlCalls).toContain('CREATE TABLE IF NOT EXISTS "table_sessions"');
     expect(ddlCalls).toContain('CREATE TABLE IF NOT EXISTS "waiter_calls"');
     expect(ddlCalls).toContain('CREATE TABLE IF NOT EXISTS "reservations"');
+    expect(ddlCalls).toContain('CREATE TABLE IF NOT EXISTS "product_categories"');
+    expect(ddlCalls).toContain('CREATE TABLE IF NOT EXISTS "products"');
+    expect(ddlCalls).toContain('CREATE TABLE IF NOT EXISTS "product_orders"');
+    expect(ddlCalls).toContain('CREATE TABLE IF NOT EXISTS "order_items"');
     expect(ddlCalls).toContain('CREATE UNIQUE INDEX IF NOT EXISTS "uq_sync_client_event"');
   });
 

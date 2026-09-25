@@ -180,3 +180,93 @@ export const syncAuditLog = pgTable(
     index('idx_sync_tenant').on(t.tenantId),
   ]
 );
+
+// 7. Categorías de Productos
+export const productCategories = pgTable(
+  'product_categories',
+  {
+    id: varchar('id', { length: 100 }).primaryKey(),
+    tenantId: varchar('tenant_id', { length: 50 }).default('default').notNull(),
+    name: varchar('name', { length: 100 }).notNull(),
+    sortOrder: integer('sort_order').default(0).notNull(),
+    createdAt: bigint('created_at', { mode: 'number' }).notNull(),
+  },
+  (t) => [
+    index('idx_product_categories_tenant').on(t.tenantId),
+  ]
+);
+
+// 8. Catálogo de Productos y Control de Stock
+export const products = pgTable(
+  'products',
+  {
+    id: varchar('id', { length: 100 }).primaryKey(),
+    tenantId: varchar('tenant_id', { length: 50 }).default('default').notNull(),
+    categoryId: varchar('category_id', { length: 100 })
+      .references(() => productCategories.id, { onDelete: 'cascade' })
+      .notNull(),
+    name: varchar('name', { length: 100 }).notNull(),
+    description: text('description'),
+    price: integer('price').notNull(),
+    stock: integer('stock').default(0).notNull(),
+    isActive: boolean('is_active').default(true).notNull(),
+    totalOrders: integer('total_orders').default(0).notNull(),
+    updatedAt: bigint('updated_at', { mode: 'number' }).notNull(),
+  },
+  (t) => [
+    index('idx_products_tenant').on(t.tenantId),
+    index('idx_products_category').on(t.categoryId),
+    index('idx_products_active').on(t.isActive),
+    index('idx_products_total_orders').on(t.totalOrders),
+  ]
+);
+
+// 9. Comandas / Pedidos de Mesa
+export const productOrders = pgTable(
+  'product_orders',
+  {
+    id: varchar('id', { length: 100 }).primaryKey(),
+    tenantId: varchar('tenant_id', { length: 50 }).default('default').notNull(),
+    tableId: varchar('table_id', { length: 100 })
+      .references(() => restaurantTables.id, { onDelete: 'cascade' })
+      .notNull(),
+    sessionId: varchar('session_id', { length: 100 })
+      .references(() => tableSessions.id, { onDelete: 'cascade' })
+      .notNull(),
+    tableName: varchar('table_name', { length: 50 }).notNull(),
+    sessionWord: varchar('session_word', { length: 50 }).notNull(),
+    status: varchar('status', { length: 20 }).default('pending').notNull(),
+    totalAmount: integer('total_amount').notNull(),
+    createdAt: bigint('created_at', { mode: 'number' }).notNull(),
+    confirmedAt: bigint('confirmed_at', { mode: 'number' }),
+  },
+  (t) => [
+    index('idx_orders_tenant').on(t.tenantId),
+    index('idx_orders_table').on(t.tableId),
+    index('idx_orders_session').on(t.sessionId),
+    index('idx_orders_status').on(t.status),
+    index('idx_orders_created').on(t.createdAt),
+  ]
+);
+
+// 10. Líneas de Pedido
+export const orderItems = pgTable(
+  'order_items',
+  {
+    id: varchar('id', { length: 100 }).primaryKey(),
+    orderId: varchar('order_id', { length: 100 })
+      .references(() => productOrders.id, { onDelete: 'cascade' })
+      .notNull(),
+    productId: varchar('product_id', { length: 100 })
+      .references(() => products.id, { onDelete: 'cascade' })
+      .notNull(),
+    productName: varchar('product_name', { length: 100 }).notNull(),
+    unitPrice: integer('unit_price').notNull(),
+    quantity: integer('quantity').notNull(),
+    notes: text('notes'),
+  },
+  (t) => [
+    index('idx_order_items_order').on(t.orderId),
+    index('idx_order_items_product').on(t.productId),
+  ]
+);

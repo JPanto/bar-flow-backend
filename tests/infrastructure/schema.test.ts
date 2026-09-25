@@ -11,6 +11,10 @@ describe('Drizzle Database Schema Definitions', () => {
     expect(schema.waiterCalls).toBeDefined();
     expect(schema.reservations).toBeDefined();
     expect(schema.syncAuditLog).toBeDefined();
+    expect(schema.productCategories).toBeDefined();
+    expect(schema.products).toBeDefined();
+    expect(schema.productOrders).toBeDefined();
+    expect(schema.orderItems).toBeDefined();
   });
 
   it('should have tenantId column on all domain and sync tables', () => {
@@ -20,6 +24,9 @@ describe('Drizzle Database Schema Definitions', () => {
     expect(schema.waiterCalls.tenantId).toBeDefined();
     expect(schema.reservations.tenantId).toBeDefined();
     expect(schema.syncAuditLog.tenantId).toBeDefined();
+    expect(schema.productCategories.tenantId).toBeDefined();
+    expect(schema.products.tenantId).toBeDefined();
+    expect(schema.productOrders.tenantId).toBeDefined();
   });
 
   it('should export enum definitions', () => {

@@ -15,6 +15,13 @@
       "when": 1790364597446,
       "tag": "0001_adorable_tombstone",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1790366927177,
+      "tag": "0002_luxuriant_purifiers",
+      "breakpoints": true
     }
   ]
 }

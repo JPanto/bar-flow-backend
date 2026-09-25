@@ -36,21 +36,11 @@ export async function runIdempotentSchemaBootstrap(pool: pg.Pool): Promise<void>
     await client.query(`
       DO $$
       BEGIN
-        IF NOT EXISTS (SELECT 1 FROM pg_type WHERE typname = 'table_shape') THEN
-          CREATE TYPE "public"."table_shape" AS ENUM('round', 'square', 'rectangle', 'counter');
-        END IF;
-        IF NOT EXISTS (SELECT 1 FROM pg_type WHERE typname = 'table_status') THEN
-          CREATE TYPE "public"."table_status" AS ENUM('available', 'occupied', 'reserved', 'blocked');
-        END IF;
-        IF NOT EXISTS (SELECT 1 FROM pg_type WHERE typname = 'call_reason') THEN
-          CREATE TYPE "public"."call_reason" AS ENUM('waiter', 'bill', 'help');
-        END IF;
-        IF NOT EXISTS (SELECT 1 FROM pg_type WHERE typname = 'call_status') THEN
-          CREATE TYPE "public"."call_status" AS ENUM('pending', 'attending', 'resolved', 'cancelled');
-        END IF;
-        IF NOT EXISTS (SELECT 1 FROM pg_type WHERE typname = 'reservation_status') THEN
-          CREATE TYPE "public"."reservation_status" AS ENUM('confirmed', 'seated', 'cancelled', 'no_show', 'completed');
-        END IF;
+        IF NOT EXISTS (SELECT 1 FROM pg_type WHERE typname = 'table_shape') THEN CREATE TYPE "public"."table_shape" AS ENUM('round', 'square', 'rectangle', 'counter'); END IF;
+        IF NOT EXISTS (SELECT 1 FROM pg_type WHERE typname = 'table_status') THEN CREATE TYPE "public"."table_status" AS ENUM('available', 'occupied', 'reserved', 'blocked'); END IF;
+        IF NOT EXISTS (SELECT 1 FROM pg_type WHERE typname = 'call_reason') THEN CREATE TYPE "public"."call_reason" AS ENUM('waiter', 'bill', 'help'); END IF;
+        IF NOT EXISTS (SELECT 1 FROM pg_type WHERE typname = 'call_status') THEN CREATE TYPE "public"."call_status" AS ENUM('pending', 'attending', 'resolved', 'cancelled'); END IF;
+        IF NOT EXISTS (SELECT 1 FROM pg_type WHERE typname = 'reservation_status') THEN CREATE TYPE "public"."reservation_status" AS ENUM('confirmed', 'seated', 'cancelled', 'no_show', 'completed'); END IF;
       END $$;
     `);
 
@@ -147,6 +137,50 @@ export async function runIdempotentSchemaBootstrap(pool: pg.Pool): Promise<void>
         "synced_at" bigint NOT NULL
       );
 
+      CREATE TABLE IF NOT EXISTS "product_categories" (
+        "id" varchar(100) PRIMARY KEY NOT NULL,
+        "tenant_id" varchar(50) DEFAULT 'default' NOT NULL,
+        "name" varchar(100) NOT NULL,
+        "sort_order" integer DEFAULT 0 NOT NULL,
+        "created_at" bigint NOT NULL
+      );
+
+      CREATE TABLE IF NOT EXISTS "products" (
+        "id" varchar(100) PRIMARY KEY NOT NULL,
+        "tenant_id" varchar(50) DEFAULT 'default' NOT NULL,
+        "category_id" varchar(100) REFERENCES "product_categories"("id") ON DELETE CASCADE NOT NULL,
+        "name" varchar(100) NOT NULL,
+        "description" text,
+        "price" integer NOT NULL,
+        "stock" integer DEFAULT 0 NOT NULL,
+        "is_active" boolean DEFAULT true NOT NULL,
+        "total_orders" integer DEFAULT 0 NOT NULL,
+        "updated_at" bigint NOT NULL
+      );
+
+      CREATE TABLE IF NOT EXISTS "product_orders" (
+        "id" varchar(100) PRIMARY KEY NOT NULL,
+        "tenant_id" varchar(50) DEFAULT 'default' NOT NULL,
+        "table_id" varchar(100) REFERENCES "restaurant_tables"("id") ON DELETE CASCADE NOT NULL,
+        "session_id" varchar(100) REFERENCES "table_sessions"("id") ON DELETE CASCADE NOT NULL,
+        "table_name" varchar(50) NOT NULL,
+        "session_word" varchar(50) NOT NULL,
+        "status" varchar(20) DEFAULT 'pending' NOT NULL,
+        "total_amount" integer NOT NULL,
+        "created_at" bigint NOT NULL,
+        "confirmed_at" bigint
+      );
+
+      CREATE TABLE IF NOT EXISTS "order_items" (
+        "id" varchar(100) PRIMARY KEY NOT NULL,
+        "order_id" varchar(100) REFERENCES "product_orders"("id") ON DELETE CASCADE NOT NULL,
+        "product_id" varchar(100) REFERENCES "products"("id") ON DELETE CASCADE NOT NULL,
+        "product_name" varchar(100) NOT NULL,
+        "unit_price" integer NOT NULL,
+        "quantity" integer NOT NULL,
+        "notes" text
+      );
+
       -- Migration: If tables were previously created with uuid IDs, alter them to varchar(100)
       DO $$
       BEGIN
@@ -161,15 +195,10 @@ export async function runIdempotentSchemaBootstrap(pool: pg.Pool): Promise<void>
           ALTER TABLE "reservations" DROP CONSTRAINT IF EXISTS "reservations_table_id_restaurant_tables_id_fk";
 
           ALTER TABLE "zones" ALTER COLUMN "id" TYPE varchar(100);
-          ALTER TABLE "restaurant_tables" ALTER COLUMN "id" TYPE varchar(100);
-          ALTER TABLE "restaurant_tables" ALTER COLUMN "zone_id" TYPE varchar(100);
-          ALTER TABLE "table_sessions" ALTER COLUMN "id" TYPE varchar(100);
-          ALTER TABLE "table_sessions" ALTER COLUMN "table_id" TYPE varchar(100);
-          ALTER TABLE "waiter_calls" ALTER COLUMN "id" TYPE varchar(100);
-          ALTER TABLE "waiter_calls" ALTER COLUMN "table_id" TYPE varchar(100);
-          ALTER TABLE "waiter_calls" ALTER COLUMN "session_id" TYPE varchar(100);
-          ALTER TABLE "reservations" ALTER COLUMN "id" TYPE varchar(100);
-          ALTER TABLE "reservations" ALTER COLUMN "table_id" TYPE varchar(100);
+          ALTER TABLE "restaurant_tables" ALTER COLUMN "id" TYPE varchar(100), ALTER COLUMN "zone_id" TYPE varchar(100);
+          ALTER TABLE "table_sessions" ALTER COLUMN "id" TYPE varchar(100), ALTER COLUMN "table_id" TYPE varchar(100);
+          ALTER TABLE "waiter_calls" ALTER COLUMN "id" TYPE varchar(100), ALTER COLUMN "table_id" TYPE varchar(100), ALTER COLUMN "session_id" TYPE varchar(100);
+          ALTER TABLE "reservations" ALTER COLUMN "id" TYPE varchar(100), ALTER COLUMN "table_id" TYPE varchar(100);
 
           ALTER TABLE "restaurant_tables" ADD CONSTRAINT "restaurant_tables_zone_id_zones_id_fk" FOREIGN KEY ("zone_id") REFERENCES "zones"("id") ON DELETE CASCADE;
           ALTER TABLE "table_sessions" ADD CONSTRAINT "table_sessions_table_id_restaurant_tables_id_fk" FOREIGN KEY ("table_id") REFERENCES "restaurant_tables"("id") ON DELETE CASCADE;
@@ -196,6 +225,18 @@ export async function runIdempotentSchemaBootstrap(pool: pg.Pool): Promise<void>
       CREATE INDEX IF NOT EXISTS "idx_reservations_date_status" ON "reservations" ("date", "status");
       CREATE INDEX IF NOT EXISTS "idx_tenant_users_tenant" ON "tenant_users" ("tenant_id");
       CREATE INDEX IF NOT EXISTS "idx_tenant_users_user" ON "tenant_users" ("user_id");
+      CREATE INDEX IF NOT EXISTS "idx_product_categories_tenant" ON "product_categories" ("tenant_id");
+      CREATE INDEX IF NOT EXISTS "idx_products_tenant" ON "products" ("tenant_id");
+      CREATE INDEX IF NOT EXISTS "idx_products_category" ON "products" ("category_id");
+      CREATE INDEX IF NOT EXISTS "idx_products_active" ON "products" ("is_active");
+      CREATE INDEX IF NOT EXISTS "idx_products_total_orders" ON "products" ("total_orders");
+      CREATE INDEX IF NOT EXISTS "idx_orders_tenant" ON "product_orders" ("tenant_id");
+      CREATE INDEX IF NOT EXISTS "idx_orders_table" ON "product_orders" ("table_id");
+      CREATE INDEX IF NOT EXISTS "idx_orders_session" ON "product_orders" ("session_id");
+      CREATE INDEX IF NOT EXISTS "idx_orders_status" ON "product_orders" ("status");
+      CREATE INDEX IF NOT EXISTS "idx_orders_created" ON "product_orders" ("created_at");
+      CREATE INDEX IF NOT EXISTS "idx_order_items_order" ON "order_items" ("order_id");
+      CREATE INDEX IF NOT EXISTS "idx_order_items_product" ON "order_items" ("product_id");
     `);
 
     await client.query('COMMIT');
