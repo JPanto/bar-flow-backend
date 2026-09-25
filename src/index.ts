@@ -1,5 +1,6 @@
 import { env } from './config/env.js';
-import { db } from './infrastructure/db/client.js';
+import { db, pool } from './infrastructure/db/client.js';
+import { initializeDatabase } from './infrastructure/db/bootstrap.js';
 import { DrizzleZoneRepository } from './infrastructure/repositories/DrizzleZoneRepository.js';
 import { DrizzleTableRepository } from './infrastructure/repositories/DrizzleTableRepository.js';
 import { DrizzleSessionRepository } from './infrastructure/repositories/DrizzleSessionRepository.js';
@@ -11,6 +12,14 @@ import { GetInitialStateUseCase } from './application/use-cases/GetInitialStateU
 import { buildServer } from './infrastructure/http/server.js';
 
 async function main() {
+  // 0. Ensure Database Schema & Tables Exist
+  try {
+    const initResult = await initializeDatabase(db, pool);
+    console.log(`📦 Database initialized successfully via: ${initResult.method}`);
+  } catch (err: any) {
+    console.error(`⚠️ Warning: Database schema initialization error: ${err.message}`);
+  }
+
   // 1. Repositories
   const zoneRepo = new DrizzleZoneRepository(db);
   const tableRepo = new DrizzleTableRepository(db);
