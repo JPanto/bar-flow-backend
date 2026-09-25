@@ -8,26 +8,25 @@ import { FastifyWebSocketHub } from '../ws/FastifyWebSocketHub.js';
 import { healthRoutes } from './routes/healthRoutes.js';
 import { syncRoutes } from './routes/syncRoutes.js';
 import { stateRoutes } from './routes/stateRoutes.js';
+import { buildCorsOptions } from './cors.js';
 import { env } from '../../config/env.js';
 
 export interface ServerOptions {
   syncUseCase: SyncOutboxBatchUseCase;
   initialStateUseCase: GetInitialStateUseCase;
   wsHub: FastifyWebSocketHub;
+  corsOrigin?: string;
 }
 
 export async function buildServer(options: ServerOptions): Promise<FastifyInstance> {
-  const { syncUseCase, initialStateUseCase, wsHub } = options;
+  const { syncUseCase, initialStateUseCase, wsHub, corsOrigin } = options;
 
   const server = Fastify({
     logger: env.NODE_ENV === 'development',
   });
 
   // 1. CORS
-  await server.register(cors, {
-    origin: env.CORS_ORIGIN === '*' ? true : env.CORS_ORIGIN,
-    methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
-  });
+  await server.register(cors, buildCorsOptions(corsOrigin ?? env.CORS_ORIGIN));
 
   // 2. WebSockets Plugin
   await server.register(websocket);
