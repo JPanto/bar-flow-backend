@@ -1,11 +1,13 @@
 import { describe, it, expect, beforeEach, afterEach } from 'vitest';
 import Fastify, { FastifyInstance } from 'fastify';
+import crypto from 'node:crypto';
 import {
   verifySupabaseJwt,
   extractAuthUser,
   verifyAuth,
   verifyOptionalAuth,
   createTestJwt,
+  createTestEs256Jwt,
 } from '../../src/infrastructure/http/middleware/authMiddleware.js';
 import { env } from '../../src/config/env.js';
 
@@ -13,57 +15,98 @@ describe('Supabase Auth Middleware & JWT Verification', () => {
   const testSecret = 'super-secret-jwt-token-with-at-least-32-characters-long';
 
   describe('verifySupabaseJwt', () => {
-    it('should successfully verify a valid HS256 JWT token', () => {
+    it('should successfully verify a valid HS256 JWT token', async () => {
       const token = createTestJwt(
         { sub: 'usr-123', email: 'staff@barflow.com' },
         testSecret
       );
 
-      const decoded = verifySupabaseJwt(token, testSecret);
+      const decoded = await verifySupabaseJwt(token, testSecret);
       expect(decoded.sub).toBe('usr-123');
       expect(decoded.email).toBe('staff@barflow.com');
     });
 
-    it('should reject a token signed with an incorrect secret', () => {
+    it('should reject a token signed with an incorrect secret', async () => {
       const token = createTestJwt(
         { sub: 'usr-123' },
         'wrong-secret-key-32-characters-or-more'
       );
 
-      expect(() => verifySupabaseJwt(token, testSecret)).toThrow(/Invalid token signature/);
+      await expect(verifySupabaseJwt(token, testSecret)).rejects.toThrow(/Invalid token signature/);
     });
 
-    it('should reject an expired token', () => {
+    it('should reject an expired token', async () => {
       const token = createTestJwt(
         { sub: 'usr-123' },
         testSecret,
         { expiresInSeconds: -60 }
       );
 
-      expect(() => verifySupabaseJwt(token, testSecret)).toThrow(/Token has expired/);
+      await expect(verifySupabaseJwt(token, testSecret)).rejects.toThrow(/Token has expired/);
     });
 
-    it('should accept a token with valid future expiration', () => {
+    it('should accept a token with valid future expiration', async () => {
       const token = createTestJwt(
         { sub: 'usr-123' },
         testSecret,
         { expiresInSeconds: 3600 }
       );
 
-      const decoded = verifySupabaseJwt(token, testSecret);
+      const decoded = await verifySupabaseJwt(token, testSecret);
       expect(decoded.sub).toBe('usr-123');
     });
 
-    it('should reject malformed token strings', () => {
-      expect(() => verifySupabaseJwt('malformed.token', testSecret)).toThrow(
+    it('should reject malformed token strings', async () => {
+      await expect(verifySupabaseJwt('malformed.token', testSecret)).rejects.toThrow(
         /expected 3 dot-separated parts/
       );
-      expect(() => verifySupabaseJwt('a.b.c', testSecret)).toThrow(/invalid header JSON/);
+      await expect(verifySupabaseJwt('a.b.c', testSecret)).rejects.toThrow(/invalid header JSON/);
     });
 
-    it('should reject unsupported algorithms', () => {
+    it('should reject unsupported algorithms', async () => {
       const token = createTestJwt({ sub: 'usr-123' }, testSecret, { alg: 'none' });
-      expect(() => verifySupabaseJwt(token, testSecret)).toThrow(/Unsupported token algorithm/);
+      await expect(verifySupabaseJwt(token, testSecret)).rejects.toThrow(/Unsupported token algorithm/);
+    });
+
+    it('should successfully verify an ES256 token using PEM public key', async () => {
+      const { publicKey, privateKey } = crypto.generateKeyPairSync('ec', {
+        namedCurve: 'prime256v1',
+      });
+      const pem = publicKey.export({ format: 'pem', type: 'spki' }) as string;
+
+      const token = createTestEs256Jwt(
+        { sub: 'es256-user-1', email: 'es256@bar.com' },
+        privateKey
+      );
+
+      const decoded = await verifySupabaseJwt(token, pem);
+      expect(decoded.sub).toBe('es256-user-1');
+      expect(decoded.email).toBe('es256@bar.com');
+    });
+
+    it('should reject an ES256 token with invalid signature', async () => {
+      const { privateKey } = crypto.generateKeyPairSync('ec', { namedCurve: 'prime256v1' });
+      const otherPair = crypto.generateKeyPairSync('ec', { namedCurve: 'prime256v1' });
+      const otherPem = otherPair.publicKey.export({ format: 'pem', type: 'spki' }) as string;
+
+      const token = createTestEs256Jwt({ sub: 'es256-user-2' }, privateKey);
+
+      await expect(verifySupabaseJwt(token, otherPem)).rejects.toThrow(/Invalid token signature/);
+    });
+
+    it('should reject an expired ES256 token', async () => {
+      const { publicKey, privateKey } = crypto.generateKeyPairSync('ec', {
+        namedCurve: 'prime256v1',
+      });
+      const pem = publicKey.export({ format: 'pem', type: 'spki' }) as string;
+
+      const token = createTestEs256Jwt(
+        { sub: 'es256-user-3' },
+        privateKey,
+        { expiresInSeconds: -30 }
+      );
+
+      await expect(verifySupabaseJwt(token, pem)).rejects.toThrow(/Token has expired/);
     });
   });
 

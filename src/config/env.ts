@@ -16,6 +16,8 @@ export const envSchema = z.object({
   DATABASE_URL: z.string().min(1, 'DATABASE_URL is required'),
   CORS_ORIGIN: z.string().default('*'),
   SUPABASE_JWT_SECRET: z.string().default('dev-secret-only'),
+  SUPABASE_URL: z.string().optional(),
+  SUPABASE_JWT_PUBLIC_KEY: z.string().optional(),
 });
 
 export type Env = z.infer<typeof envSchema>;

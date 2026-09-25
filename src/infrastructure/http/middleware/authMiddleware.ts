@@ -15,84 +15,12 @@ declare module 'fastify' {
   }
 }
 
-export interface SupabaseJwtPayload {
-  sub?: string;
-  id?: string;
-  email?: string;
-  role?: string;
-  tenant_id?: string;
-  tenantId?: string;
-  app_metadata?: {
-    tenant_id?: string;
-    role?: string;
-    [key: string]: unknown;
-  };
-  user_metadata?: {
-    tenant_id?: string;
-    role?: string;
-    [key: string]: unknown;
-  };
-  exp?: number;
-  [key: string]: unknown;
-}
-
-/**
- * Verifies HS256 JWT signature and expiration against the given secret.
- * Throws an Error if token is invalid, expired, or malformed.
- */
-export function verifySupabaseJwt(
-  token: string,
-  secret: string = env.SUPABASE_JWT_SECRET
-): SupabaseJwtPayload {
-  const parts = token.split('.');
-  if (parts.length !== 3) {
-    throw new Error('Malformed token: expected 3 dot-separated parts');
-  }
-
-  const [headerB64, payloadB64, signatureB64] = parts;
-
-  let header: { alg?: string; typ?: string };
-  try {
-    header = JSON.parse(Buffer.from(headerB64, 'base64url').toString('utf8'));
-  } catch {
-    throw new Error('Malformed token: invalid header JSON');
-  }
-
-  if (header.alg !== 'HS256') {
-    throw new Error(`Unsupported token algorithm: ${header.alg}`);
-  }
-
-  const expectedSignature = crypto
-    .createHmac('sha256', secret)
-    .update(`${headerB64}.${payloadB64}`)
-    .digest('base64url');
-
-  const sigBuffer = Buffer.from(signatureB64, 'base64url');
-  const expectedBuffer = Buffer.from(expectedSignature, 'base64url');
-
-  if (
-    sigBuffer.length !== expectedBuffer.length ||
-    !crypto.timingSafeEqual(sigBuffer, expectedBuffer)
-  ) {
-    throw new Error('Invalid token signature');
-  }
-
-  let payload: SupabaseJwtPayload;
-  try {
-    payload = JSON.parse(Buffer.from(payloadB64, 'base64url').toString('utf8'));
-  } catch {
-    throw new Error('Malformed token: invalid payload JSON');
-  }
-
-  if (payload.exp && typeof payload.exp === 'number') {
-    const nowInSeconds = Math.floor(Date.now() / 1000);
-    if (payload.exp < nowInSeconds) {
-      throw new Error('Token has expired');
-    }
-  }
-
-  return payload;
-}
+export {
+  verifySupabaseJwt,
+  SupabaseJwtPayload,
+  clearJwksCache,
+} from './jwtVerifier.js';
+import { verifySupabaseJwt, SupabaseJwtPayload } from './jwtVerifier.js';
 
 /**
  * Extracts normalized AuthUser from decoded Supabase payload with safe fallbacks.
@@ -146,7 +74,7 @@ export async function verifyAuth(
   }
 
   try {
-    const payload = verifySupabaseJwt(token);
+    const payload = await verifySupabaseJwt(token);
     request.user = extractAuthUser(payload);
   } catch (err: any) {
     reply.status(401).send({
@@ -180,7 +108,7 @@ export async function verifyOptionalAuth(
   }
 
   try {
-    const payload = verifySupabaseJwt(token);
+    const payload = await verifySupabaseJwt(token);
     request.user = extractAuthUser(payload);
   } catch (err: any) {
     reply.status(401).send({
@@ -215,6 +143,35 @@ export function createTestJwt(
     .createHmac('sha256', secret)
     .update(`${headerB64}.${payloadB64}`)
     .digest('base64url');
+
+  return `${headerB64}.${payloadB64}.${signatureB64}`;
+}
+
+/**
+ * Test helper to sign an ES256 JWT using an EC private key.
+ */
+export function createTestEs256Jwt(
+  payload: Record<string, unknown>,
+  privateKey: crypto.KeyLike,
+  options?: { expiresInSeconds?: number; kid?: string }
+): string {
+  const header = { alg: 'ES256', typ: 'JWT', kid: options?.kid };
+  const headerB64 = Buffer.from(JSON.stringify(header)).toString('base64url');
+
+  const fullPayload = {
+    ...payload,
+    ...(options?.expiresInSeconds !== undefined
+      ? { exp: Math.floor(Date.now() / 1000) + options.expiresInSeconds }
+      : {}),
+  };
+  const payloadB64 = Buffer.from(JSON.stringify(fullPayload)).toString('base64url');
+
+  const signer = crypto.createSign('SHA256');
+  signer.update(`${headerB64}.${payloadB64}`);
+  const signatureB64 = signer.sign(
+    { key: privateKey as any, dsaEncoding: 'ieee-p1363' },
+    'base64url'
+  );
 
   return `${headerB64}.${payloadB64}.${signatureB64}`;
 }
